@@ -1,4 +1,4 @@
-package com.nicopuhlmann.springaiday1;
+package com.nicopuhlmann.springai;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

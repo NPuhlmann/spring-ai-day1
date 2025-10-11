@@ -1,4 +1,4 @@
-package com.nicopuhlmann.springaiday1;
+package com.nicopuhlmann.springai;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
