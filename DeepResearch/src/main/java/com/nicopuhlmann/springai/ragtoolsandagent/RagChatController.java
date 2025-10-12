@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,6 +38,11 @@ public class RagChatController {
     @PostMapping("/tavily")
     public ChatClientResponse askExternalData(@RequestParam(value="message", defaultValue="Was ist der Attention Mechanismus?") String question){
         return chatClient.prompt().user(question).call().chatClientResponse();
+    }
+
+    @PostMapping("/mcp")
+    public ChatClientResponse askMcpServer(@RequestParam(value = "message", defaultValue="welcher meiner Mitarbeiter kann mir bei Server Problemen helfen?") String question, ToolCallbackProvider mcpToolProvider){
+        return chatClient.prompt().user(question).toolCallbacks(mcpToolProvider).call().chatClientResponse();
     }
 
     @PostMapping("/agent/chat")

@@ -8,10 +8,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
+
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -20,21 +25,32 @@ public class OrchestratorService {
 
     private final ChatClient chatClientWithRAG;
     private final ChatClient chatClientWithoutRAG;
+    private final ToolCallbackProvider mcpToolProvider;
 
     private static final Logger log = LoggerFactory.getLogger(OrchestratorService.class);
 
     private static final String ORCHESTRATOR_PROMPT = """
-            Analysiere die folgende Anfrage und erstelle einen Plan, bestehend aus in 2-3 Schritten.
-            
+            Analysiere die folgende Anfrage und entscheide zunächst, ob ein ausführlicher Deep-Research Report nötig ist.
+
+            ENTSCHEIDUNGSKRITERIEN für needsFullReport:
+            - TRUE: Komplexe, vielschichtige Fragen die tiefe Analyse, Vergleiche, oder mehrere Perspektiven benötigen
+            - TRUE: Fragen nach ausführlichen Berichten, Analysen, Studien oder Dokumentationen
+            - TRUE: Themen die mehrere Kapitel, strukturierte Aufbereitung oder wissenschaftliche Tiefe erfordern
+            - FALSE: Einfache Faktenfragen, schnelle Antworten, einzelne Informationen
+            - FALSE: "Was ist...", "Wer ist...", "Wann...", "Wie viel..." Fragen
+            - FALSE: Aktuelle News oder einzelne Datenpunkte
+
             Du hast Zugriff auf mehrere Worker:
             - RAG Worker mit Zugriff auf lokale Dokumente über LLM Techniken und wissenschaftliche Paper
             - Tavily Worker für den Zugriff auf das Internet, zum Suchen nach den neuesten Informationen
-            
-            Erstelle einen plan, wie du beide Worker parallel nutzen kannst, um die passende Antwort zu erhalten.
-            Zerlege die Frage des Nutzers in einzelne Aufgaben und beschreibe den Typ des Workers und eine speziell 
+            - mcp Worker für den Zugriff auf Mitarbeiter Daten
+
+            Erstelle einen Plan mit 2-3 Tasks:
+            Zerlege die Frage des Nutzers in einzelne Aufgaben und beschreibe den Typ des Workers und eine speziell
             auf die Fähigkeiten dieses Workers zugeschnittene Aufgabenbeschreibung. Beschränke dich bei der Beschreibung
             der Aufgabe für den Worker auf eine einzige Fragestellung.
-            Anfrage: {question}            
+
+            Anfrage: {question}
             """;
     private static final String WORKER_PROMPT = """
             Generiere eine Antwort basierend auf folgendem:
@@ -120,11 +136,12 @@ public class OrchestratorService {
 
 
 
-    public OrchestratorService(ChatClient.Builder builder, VectorStore vectorStore, TavilyTool tavilyTool) {
+    public OrchestratorService(ChatClient.Builder builder, VectorStore vectorStore, TavilyTool tavilyTool, ToolCallbackProvider mcpToolProvider) {
         // ChatClient mit RAG und Tools für Worker Tasks
         this.chatClientWithRAG = builder
             .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore))
             .defaultTools(tavilyTool)
+            .defaultToolCallbacks(mcpToolProvider.getToolCallbacks())
             .build();
 
         // ChatClient ohne RAG für Orchestrator, Report Planning und Writing
@@ -148,7 +165,9 @@ public class OrchestratorService {
             log.error("Orchestrator konnte keine Antwort generieren!");
             throw new RuntimeException("Orchestrator konnte keine Antwort generieren");
         }
-        log.info("Orchestrator Response erhalten: {} Tasks generiert", response.tasks().size());
+        log.info("Orchestrator Response erhalten:");
+        log.info("  • Needs Full Report: {}", response.needsFullReport());
+        log.info("  • Tasks generiert: {}", response.tasks().size());
         log.info("Geplante Tasks:");
         response.tasks().forEach(task ->
             log.info("  • Task [{}]: {}", task.type(), task.description())
@@ -277,9 +296,24 @@ public class OrchestratorService {
         log.info(">>> PHASE 1: Orchestrator Analyse");
         OrchestratorResponse orchestratorResponse = analyzeWithOrchestrator(question);
 
+        log.info("Orchestrator Entscheidung: needsFullReport = {}", orchestratorResponse.needsFullReport());
+
         // Phase 2: Worker Execution
         log.info(">>> PHASE 2: Worker Execution - Datensammlung");
-        String combinedData = executeWorkers(orchestratorResponse, question);
+    String combinedData = executeWorkers(orchestratorResponse, question);
+
+        // GATE: Entscheidung ob Full Report oder Quick Answer
+        if (!orchestratorResponse.needsFullReport()) {
+            // Quick Answer Mode: Gib kombinierte Worker-Ergebnisse direkt zurück
+            log.info("╔═══════════════════════════════════════════════════════════════════════════════╗");
+            log.info("║  WORKFLOW ABGESCHLOSSEN (Quick Answer Mode)                                  ║");
+            log.info("╚═══════════════════════════════════════════════════════════════════════════════╝");
+            log.info("Antwort-Länge: {} Zeichen\n", combinedData.length());
+            return combinedData;
+        }
+
+        // Full Report Mode: Fortfahren mit Report Planning und Writing
+        log.info(">>> Starte Full Report Mode (Phasen 3 & 4)");
 
         // Phase 3: Report Planning
         log.info(">>> PHASE 3: Report Planning - Struktur erstellen");
@@ -290,7 +324,7 @@ public class OrchestratorService {
         String report = writerWorker(reportPlan);
 
         log.info("╔═══════════════════════════════════════════════════════════════════════════════╗");
-        log.info("║  DEEP RESEARCH WORKFLOW ABGESCHLOSSEN                                        ║");
+        log.info("║  DEEP RESEARCH WORKFLOW ABGESCHLOSSEN (Full Report Mode)                     ║");
         log.info("╚═══════════════════════════════════════════════════════════════════════════════╝");
         log.info("Finaler Report-Länge: {} Zeichen\n", report.length());
 

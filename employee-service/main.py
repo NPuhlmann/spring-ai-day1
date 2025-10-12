@@ -5,7 +5,7 @@ from typing import List, Dict
 app = FastAPI(
     title="Employee Service API",
     description="Ein einfacher Service für Mitarbeiterdaten mit API-Key Authentifizierung",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # API Key Configuration
@@ -21,7 +21,7 @@ EMPLOYEES = [
         "position": "Software Engineer",
         "department": "Engineering",
         "salary": 75000,
-        "hire_date": "2020-03-15"
+        "hire_date": "2020-03-15",
     },
     {
         "id": 2,
@@ -30,7 +30,7 @@ EMPLOYEES = [
         "position": "Product Manager",
         "department": "Product",
         "salary": 85000,
-        "hire_date": "2019-07-22"
+        "hire_date": "2019-07-22",
     },
     {
         "id": 3,
@@ -39,8 +39,8 @@ EMPLOYEES = [
         "position": "DevOps Engineer",
         "department": "Engineering",
         "salary": 80000,
-        "hire_date": "2021-01-10"
-    }
+        "hire_date": "2021-01-10",
+    },
 ]
 
 
@@ -49,12 +49,11 @@ async def verify_api_key(api_key: str = Security(api_key_header)):
     if api_key is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="API-Key fehlt. Bitte X-API-Key Header setzen."
+            detail="API-Key fehlt. Bitte X-API-Key Header setzen.",
         )
     if api_key != API_KEY:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Ungültiger API-Key."
+            status_code=status.HTTP_403_FORBIDDEN, detail="Ungültiger API-Key."
         )
     return api_key
 
@@ -66,8 +65,9 @@ async def root():
         "service": "Employee Service API",
         "version": "1.0.0",
         "endpoints": {
-            "/employees": "GET - Liste aller Mitarbeiter (benötigt API-Key)"
-        }
+            "/employees": "GET - Liste aller Mitarbeiter (benötigt API-Key)",
+            "/employees/{id}": "GET - Einzelner Mitarbeiter per ID (benötigt API-Key)",
+        },
     }
 
 
@@ -79,6 +79,23 @@ async def get_employees(api_key: str = Security(verify_api_key)):
     Benötigt einen gültigen API-Key im X-API-Key Header.
     """
     return EMPLOYEES
+
+
+@app.get("/employees/{employee_id}", response_model=Dict)
+async def get_employee_by_id(employee_id: int, api_key: str = Security(verify_api_key)):
+    """
+    Gibt die Daten eines einzelnen Mitarbeiters anhand der ID zurück.
+
+    Benötigt einen gültigen API-Key im X-API-Key Header.
+    """
+    for employee in EMPLOYEES:
+        if employee["id"] == employee_id:
+            return employee
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Mitarbeiter mit ID {employee_id} nicht gefunden.",
+    )
 
 
 @app.get("/health")

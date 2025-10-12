@@ -4,5 +4,6 @@ import java.util.List;
 
 public record OrchestratorResponse(
         String analysis,
-    List<WorkerTask> tasks
+        boolean needsFullReport,
+        List<WorkerTask> tasks
 ){}
