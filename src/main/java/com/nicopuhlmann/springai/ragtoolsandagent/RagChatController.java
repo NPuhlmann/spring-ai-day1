@@ -1,5 +1,8 @@
-package com.nicopuhlmann.springai.rag;
+package com.nicopuhlmann.springai.ragtoolsandagent;
 
+import com.nicopuhlmann.springai.ragtoolsandagent.service.OrchestratorService;
+import com.nicopuhlmann.springai.ragtoolsandagent.tools.TavilyTool;
+import org.slf4j.Logger;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
@@ -8,16 +11,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-
 @RestController
 public class RagChatController {
 
     private final ChatClient chatClient;
     private final TavilyTool tavilyTool;
+    private final OrchestratorService orchestratorService;
 
-    public RagChatController(ChatClient.Builder builder, VectorStore vectorStore, TavilyTool tavilyTool) {
+    public RagChatController(ChatClient.Builder builder, VectorStore vectorStore, TavilyTool tavilyTool, OrchestratorService orchestratorService) {
         this.tavilyTool = tavilyTool;
+        this.orchestratorService = orchestratorService;
         this.chatClient = builder
                 .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore))
                 .defaultTools(this.tavilyTool)
@@ -34,6 +37,11 @@ public class RagChatController {
     @PostMapping("/tavily")
     public ChatClientResponse askExternalData(@RequestParam(value="message", defaultValue="Was ist der Attention Mechanismus?") String question){
         return chatClient.prompt().user(question).call().chatClientResponse();
+    }
+
+    @PostMapping("/agent/chat")
+    public String chatAgentic(@RequestParam(value = "question", defaultValue = "Was ist der Attention Mechanismus, und was haben die Autoren noch veröffentlicht?") String question){
+        return orchestratorService.answer(question);
     }
 
 }

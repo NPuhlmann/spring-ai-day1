@@ -1,4 +1,4 @@
-package com.nicopuhlmann.springai.rag;
+package com.nicopuhlmann.springai.ragtoolsandagent;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
