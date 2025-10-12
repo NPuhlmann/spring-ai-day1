@@ -50,7 +50,7 @@ public class OrchestratorService {
             auf die Fähigkeiten dieses Workers zugeschnittene Aufgabenbeschreibung. Beschränke dich bei der Beschreibung
             der Aufgabe für den Worker auf eine einzige Fragestellung.
 
-            Anfrage: {question}
+            Anfrage: %s
             """;
     private static final String WORKER_PROMPT = """
             Generiere eine Antwort basierend auf folgendem:
@@ -137,6 +137,8 @@ public class OrchestratorService {
 
 
     public OrchestratorService(ChatClient.Builder builder, VectorStore vectorStore, TavilyTool tavilyTool, ToolCallbackProvider mcpToolProvider) {
+        this.mcpToolProvider = mcpToolProvider;
+
         // ChatClient mit RAG und Tools für Worker Tasks
         this.chatClientWithRAG = builder
             .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore))
@@ -148,6 +150,34 @@ public class OrchestratorService {
         this.chatClientWithoutRAG = builder.build();
 
         log.info("OrchestratorService initialisiert mit 2 ChatClients (mit/ohne RAG)");
+    }
+
+    @PostConstruct
+    public void validateMcpTools() {
+        log.info("╔════════════════════════════════════════════════════════════════════════════════╗");
+        log.info("║  MCP TOOL VALIDATION                                                          ║");
+        log.info("╚════════════════════════════════════════════════════════════════════════════════╝");
+
+        if (mcpToolProvider == null) {
+            log.error("❌ ToolCallbackProvider ist NULL! MCP Server ist NICHT verbunden!");
+            return;
+        }
+
+        var toolCallbacks = mcpToolProvider.getToolCallbacks();
+
+        if (toolCallbacks == null || toolCallbacks.length == 0) {
+            log.warn("⚠️  Keine MCP Tools gefunden! MCP Server könnte nicht erreichbar sein.");
+            log.warn("    Überprüfe: http://localhost:8081");
+            log.warn("    application.properties: spring.ai.mcp.client.sse.connections.server1.url");
+        } else {
+            log.info("✅ MCP Tools erfolgreich geladen: {} Tools gefunden", toolCallbacks.length);
+            for (int i = 0; i < toolCallbacks.length; i++) {
+                var tool = toolCallbacks[i];
+                log.info("   {}. Tool: {}", (i + 1), tool.getToolDefinition());
+            }
+        }
+
+        log.info("════════════════════════════════════════════════════════════════════════════════\n");
     }
 
 
