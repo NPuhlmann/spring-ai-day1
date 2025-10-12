@@ -24,7 +24,7 @@ public class OrchestratorService {
     private static final Logger log = LoggerFactory.getLogger(OrchestratorService.class);
 
     private static final String ORCHESTRATOR_PROMPT = """
-            Analysiere die folgende Anfrage und erstelle einen Plan, bestehend aus mehreren Schritten.
+            Analysiere die folgende Anfrage und erstelle einen Plan, bestehend aus in 2-3 Schritten.
             
             Du hast Zugriff auf mehrere Worker:
             - RAG Worker mit Zugriff auf lokale Dokumente über LLM Techniken und wissenschaftliche Paper
@@ -32,7 +32,8 @@ public class OrchestratorService {
             
             Erstelle einen plan, wie du beide Worker parallel nutzen kannst, um die passende Antwort zu erhalten.
             Zerlege die Frage des Nutzers in einzelne Aufgaben und beschreibe den Typ des Workers und eine speziell 
-            auf die Fähigkeiten dieses Workers zugeschnittene Aufgabenbeschreibung.
+            auf die Fähigkeiten dieses Workers zugeschnittene Aufgabenbeschreibung. Beschränke dich bei der Beschreibung
+            der Aufgabe für den Worker auf eine einzige Fragestellung.
             Anfrage: {question}            
             """;
     private static final String WORKER_PROMPT = """
@@ -165,7 +166,6 @@ public class OrchestratorService {
         List<CompletableFuture<String>> workerFutures = orchestratorResponse.tasks().stream().map(task ->
             CompletableFuture.supplyAsync(() -> {
                 log.info("--- Worker Task {} START ---", task.type());
-                log.info("Task Description: {}", task.description());
 
                 String prompt = String.format(WORKER_PROMPT, question, task.type(), task.description());
                 log.debug("Worker Prompt: {}", prompt);
