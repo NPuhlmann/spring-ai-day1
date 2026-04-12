@@ -23,7 +23,7 @@ public class RagChatController {
         this.tavilyTool = tavilyTool;
         this.orchestratorService = orchestratorService;
         this.chatClient = builder
-                .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore))
+                .defaultAdvisors(QuestionAnswerAdvisor.builder(vectorStore).build())
                 .defaultTools(this.tavilyTool)
                 .defaultSystem("You are a helpful assistant. When a user asks about current events, news, or real-time information, ALWAYS use the available search tool to get the latest information. Do not ask for permission - just use the tool directly.")
                 .build();

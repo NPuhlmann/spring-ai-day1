@@ -10,6 +10,7 @@ spring:
                 name: webmvc-mcp-server
                 version: 1.0.0
                 type: SYNC
+                protocol: STREAMABLE
                 instructions: "This server provides employee information tools and resources"
                 capabilities:
                     tool: true

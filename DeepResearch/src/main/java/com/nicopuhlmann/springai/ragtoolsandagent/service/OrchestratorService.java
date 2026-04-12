@@ -141,7 +141,7 @@ public class OrchestratorService {
 
         // ChatClient mit RAG und Tools für Worker Tasks
         this.chatClientWithRAG = builder
-            .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore))
+            .defaultAdvisors(QuestionAnswerAdvisor.builder(vectorStore).build())
             .defaultTools(tavilyTool)
             .defaultToolCallbacks(mcpToolProvider.getToolCallbacks())
             .build();
